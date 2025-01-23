@@ -31,3 +31,15 @@ The application menu.
 By typing the following command in the terminal:
 
 pgadmin4
+
+
+sudo -u postgres psql
+
+# psql এর ভিতরে:
+postgres=# \password postgres
+Enter new password for user "postgres":
+Enter password again
+postgres=# exit
+
+
+https://pypi.org/project/psycopg-binary/
