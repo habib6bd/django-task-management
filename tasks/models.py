@@ -5,6 +5,9 @@ class Employee(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
 
+    def __str__(self):
+        return self.name
+
 class Task(models.Model):
     project = models.ForeignKey(
         "Project",
