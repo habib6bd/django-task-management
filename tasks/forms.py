@@ -16,7 +16,7 @@ class TaskForm(forms.Form):
         # print(args, kwargs)
         employees = kwargs.pop("employees", [])
         super().__init__(*args, **kwargs)
-        self.fields['assign_to'].choices = [
+        self.fields['assigned_to'].choices = [
             (emp.id, emp.name) for emp in employees]
 
 
@@ -61,10 +61,10 @@ class StyledFormMixin:
 class TaskModelForm(StyledFormMixin, forms.ModelForm):
     class Meta:
         model = Task
-        fields = ['title', 'description', 'due_date', 'assign_to']
+        fields = ['title', 'description', 'due_date', 'assigned_to']
         widgets = {
             'due_date': forms.SelectDateWidget,
-            'assign_to': forms.CheckboxSelectMultiple
+            'assigned_to': forms.CheckboxSelectMultiple
         }
 
     """ Widget using mixins """
