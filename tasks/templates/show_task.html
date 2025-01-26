@@ -9,12 +9,13 @@
     <div>
        <ul>
         {% for task in tasks %}
-        <li>{{task.title}}</li>
+        <li>
+            <p>{{task.title}}</p>
+            <span>{{task.details.priority}}</span>
+        </li>
         {% endfor %}
        </ul>
     </div>
-    <div>
-        {{task_3}}
-    </div>
+   
 </body>
 </html>

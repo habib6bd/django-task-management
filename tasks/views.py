@@ -1,7 +1,10 @@
 from django.http import HttpResponse
 from django.shortcuts import render
 from tasks.forms import TaskForm, TaskModelForm
-from tasks.models import Employee, Task
+from tasks.models import Employee, Task, TaskDetail
+from datetime import date
+from django.db.models import Q
+
 # Create your views here.
 def manager_dashboard(request):
     return render(request, "dashboard/manager-dashboard.html")
@@ -54,9 +57,19 @@ def create_task(request):
     return render (request, 'task_form.html', context)
 
 def view_task(request):
-    #retrieve all data from task model
-    tasks = Task.objects.all() 
+    # tasks = Task.objects.filter(status= 'PENDING')
 
-    #retrive a specific task
-    task_3 = Task.objects.get(id=1)
-    return render(request, 'show_task.html', {"tasks": tasks, "task_3": task_3})
+    # tasks = Task.objects.filter(due_date = date.today())
+
+    # tasks = TaskDetail.objects.exclude(priority= 'L')
+    """Show the task contains paper and status pending"""
+    # tasks = Task.objects.filter(title__icontains="c", status="PENDING") 
+
+    # tasks = Task.objects.filter(Q(status = 'PENDING') | Q(status = 'IN_PROGRESS'))
+
+    # tasks = Task.objects.filter(status="sdfsdf").exists() 
+
+    # tasks = Task.objects.all()
+    tasks = Task.objects.select_related('details').all()
+
+    return render(request, 'show_task.html', {"tasks": tasks})
