@@ -6,15 +6,31 @@
     <title>View Task</title>
 </head>
 <body>
-    <div>
-       <ul>
+    {% comment %} <div>
+       <ol>
         {% for task in tasks %}
         <li>
             <p>{{task.title}}</p>
-            <span>{{task.details.priority}}</span>
+            {% for emp in task.assigned_to.all %}
+                <p>{{emp.name}}</p>
+            {% endfor %}
         </li>
         {% endfor %}
-       </ul>
+    </ol>
+    </div> {% endcomment %}
+
+    {% comment %} <div>
+        <p>{{task_count.num_task}}</p>
+    </div> {% endcomment %}
+    <div>
+        <ol>
+            {% for project in projects %}
+            <li>
+                <p>{{project.name}}</p>
+                <p>{{project.num_task}}</p>
+            </li>
+            {% endfor %}
+        </ol>
     </div>
    
 </body>
