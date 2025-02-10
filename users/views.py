@@ -1,10 +1,12 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, HttpResponse
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth import login, authenticate, logout
 from users.forms import CustomRegistrationForm
 from django.contrib import messages
 from users.forms import LoginForm
+from django.contrib.auth.tokens import default_token_generator
+
 
 
 
@@ -38,3 +40,15 @@ def sign_out(request):
     if request.method == 'POST':
         logout(request)
         return redirect('sign-in')
+    
+def activate_user(request, user_id, token):
+    try:
+        user = User.objects.get(id=user_id)
+        if default_token_generator.check_token(user, token):
+            user.is_active = True
+            user.save()
+            return redirect('sign-in')
+        else:
+            return HttpResponse('Invalid Id or token')
+    except User.DoesNotExist:
+        return HttpResponse('User not found')
