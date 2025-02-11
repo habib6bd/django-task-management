@@ -1,8 +1,7 @@
 from django.shortcuts import render, redirect, HttpResponse
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth.models import User
-from django.contrib.auth import login, authenticate, logout
-from users.forms import CustomRegistrationForm
+from django.contrib.auth.models import User, Group
+from django.contrib.auth import login, logout
+from users.forms import CustomRegistrationForm, AssignRoleForm, createGroupForm
 from django.contrib import messages
 from users.forms import LoginForm
 from django.contrib.auth.tokens import default_token_generator
@@ -52,3 +51,38 @@ def activate_user(request, user_id, token):
             return HttpResponse('Invalid Id or token')
     except User.DoesNotExist:
         return HttpResponse('User not found')
+    
+def admin_dashboard(request):
+    users = User.objects.all()
+    return render(request, 'admin/dashboard.html', {"users": users})
+
+def assign_role(request, user_id):
+    user = User.objects.get(id=user_id)
+    form = AssignRoleForm
+
+    if request.method == 'POST':
+        form = AssignRoleForm(request.POST)
+        if form.is_valid():
+            role = form.cleaned_data.get('role')
+            user.groups.clear() #Remove old roles
+            user.groups.add(role)
+            messages.success(request, f"User {user.username} has been assigned to the {role.name} role")
+            return redirect('admin-dashboard')
+    return render(request, 'admin/assign_role.html', {"form": form})
+
+
+def create_group(request):
+    form = createGroupForm()
+    if request.method == 'POST':
+        form = createGroupForm(request.POST)
+
+        if form.is_valid():
+            group = form.save()
+            messages.success(request, f"Group {group.name} has been created successfully")
+            return redirect('create-group')
+    return render(request, 'admin/create_group.html', {'form': form})
+
+def group_list(request):
+    groups = Group.objects.all()
+    return render(request, 'admin/group_list.html', {'groups': groups})
+
