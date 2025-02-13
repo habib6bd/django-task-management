@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from tasks.forms import TaskForm, TaskModelForm, TaskDetailModelForm
-from tasks.models import Employee, Task, TaskDetail
+from tasks.models import Task, TaskDetail
 from datetime import date
 from django.db.models import Q, Count
 from django.contrib import messages
@@ -60,7 +60,7 @@ def create_task(request):
 
     if request.method == 'POST':
         task_form = TaskModelForm(request.POST)
-        task_detail_form = TaskDetailModelForm(request.POST)
+        task_detail_form = TaskDetailModelForm(request.POST, request.FILES)
         if task_form.is_valid() and task_detail_form.is_valid():
 
             """ For Model Form Data"""
@@ -149,3 +149,9 @@ def view_task(request):
     tasks = Task.objects.select_related('details').all()
 
     return render(request, 'show_task.html', {"tasks": tasks})
+
+@login_required
+@permission_required("tasks.view_task", login_url='no-permission')
+def task_details(request, task_id):
+    task = Task.objects.get(id=task_id)
+    return render(request, 'task_detail.html', {"task": task})
