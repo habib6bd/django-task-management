@@ -14,6 +14,12 @@ from django.db.models import Prefetch
 def is_admin(user):
     return user.groups.filter(name='Admin').exists()
 
+def is_organizer(user):
+    return user.groups.filter(name='Organizer').exists()
+
+def is_participant(user):
+    return user.groups.filter(name='Participant').exists()
+
 def sign_up(request):
     form = CustomRegistrationForm()
     if request.method == 'POST':
