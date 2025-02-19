@@ -7,7 +7,25 @@ from django.db.models import Q, Count
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test, login_required, permission_required
 from users.views import is_admin
-# Create your views here.
+from django.http import HttpResponse
+from django.views import View
+from django.utils.decorators import method_decorator
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.views.generic.base import ContextMixin
+
+
+
+
+#class based views Re-use example:
+class Greetings(View):
+    greetings = 'Hellow Everyone'
+
+    def get(self, request):
+        return HttpResponse(self.greetings)
+    
+class HiGreetings(Greetings):
+    greetings='Hi Everyone'
 
 def is_manager(user):
     return user.groups.filter(name='Manager').exists()
@@ -72,25 +90,44 @@ def create_task(request):
             messages.success(request, "Task Created Successfully")
             return redirect('create-task')
 
-            '''For Django Form Data'''
-            # data = form.cleaned_data
-            # title = data.get('title')
-            # description = data.get('description')
-            # due_date = data.get('due_date')
-            # assign_to = data.get('assign_to')
-
-            # task = Task.objects.create(
-            #     title= title, description = description, due_date = due_date)
-            # #Assign employee to task
-            # for emp_id in assign_to:
-            #     employee = Employee.objects.get(id = emp_id)
-            #     task.assign_to.add(employee)
-
-            # return HttpResponse("Task Added Successfully")
-
-        
     context = {"task_form": task_form, "task_detail_form": task_detail_form}
     return render (request, 'task_form.html', context)
+
+#Variable for list of decorators
+create_decorators = [login_required, permission_required("tasks.add_task", login_url='no-permission')]
+
+class CreateTask(ContextMixin, LoginRequiredMixin, PermissionRequiredMixin, View):
+    """ For creating Task """
+    permission_required= 'tasks.add_task'
+    login_url= 'sign-in'
+    template_name = 'task_form.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['task_form'] = kwargs.get('task_form', TaskModelForm())
+        context['task_detail_form'] = kwargs.get('task_detail_form', TaskDetailModelForm())
+        return context
+
+    def get(self, request, *args, **kwargs):
+        context = self.get_context_data()
+        return render (request, 'task_form.html', context)
+
+    def post(self, request, *args, **kwargs):
+        task_form = TaskModelForm(request.POST)
+        task_detail_form = TaskDetailModelForm(request.POST, request.FILES)
+        
+        if task_form.is_valid() and task_detail_form.is_valid():
+
+            """ For Model Form Data"""
+            task = task_form.save()
+            task_detail = task_detail_form.save(commit=False)
+            task_detail.task = task
+            task_detail.save()
+
+            messages.success(request, "Task Created Successfully")
+            context = self.get_context_data(task_form=task_form, task_detail_form = task_detail_form)
+            return render (request, 'task_form.html', context)
+
 
 @login_required
 @permission_required("tasks.change_task", login_url='no-permission')
