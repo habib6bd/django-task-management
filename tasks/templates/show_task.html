@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View Task</title>
+    <title>Document</title>
 </head>
 <body>
     <div>
-       <ul>
-        {% for task in tasks %}
-        <li>
-            <p>{{task.title}}</p>
-            <span>{{task.details.priority}}</span>
-        </li>
-        {% endfor %}
-       </ul>
+       <ol>
+            {% for project in projects %}
+                <li>
+                    <p>{{project.name}}</p>
+                    <p>{{project.num_task}}</p>
+                </li>
+            {% endfor %}
+            </ol> 
+            {% comment %} <p>{{task_count}}</p> {% endcomment %}
     </div>
-   
 </body>
 </html>
