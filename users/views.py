@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect, HttpResponse
+from django.shortcuts import render, redirect, HttpResponse, get_object_or_404
 from django.contrib.auth.models import Group
 from django.contrib.auth import login, logout
 from users.forms import CustomRegistrationForm, AssignRoleForm, CreateGroupForm, CustomPasswordChangeForm, CustomPasswordResetForm, CustomPasswordResetConfirmForm, EditProfileForm
@@ -8,9 +8,11 @@ from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Prefetch
 from django.contrib.auth.views import LoginView, PasswordChangeView, PasswordResetView, PasswordResetConfirmView
-from django.views.generic import TemplateView, UpdateView
+from django.views.generic import TemplateView, UpdateView, ListView
 from django.urls import reverse_lazy
 from django.contrib.auth import get_user_model
+from django.views.generic.edit import FormView
+from django.contrib.auth.mixins import UserPassesTestMixin
 
 User = get_user_model()
 
@@ -143,7 +145,7 @@ def admin_dashboard(request):
     return render(request, 'admin/dashboard.html', {"users": users})
 
 
-@user_passes_test(is_admin, login_url='no-permission')
+""" @user_passes_test(is_admin, login_url='no-permission')
 def assign_role(request, user_id):
     user = User.objects.get(id=user_id)
     form = AssignRoleForm()
@@ -157,28 +159,60 @@ def assign_role(request, user_id):
             messages.success(request, f"User { user.username} has been assigned to the {role.name} role")
             return redirect('admin-dashboard')
 
-    return render(request, 'admin/assign_role.html', {"form": form})
+    return render(request, 'admin/assign_role.html', {"form": form}) """
+
+#Class based View
+class AssignRoleView(UserPassesTestMixin, FormView):
+    template_name = 'admin/assign_role.html'
+    form_class = AssignRoleForm
+    success_url = reverse_lazy('admin-dashboard')
+
+    def test_func(self):
+        """Check if the user is an admin."""
+        return self.request.user.is_authenticated and self.request.user.groups.filter(name='Admin').exists()
+
+    def form_valid(self, form):
+        """Assign the selected role to the user."""
+        user_id = self.kwargs.get('user_id')
+        user = get_object_or_404(User, id=user_id)
+
+        role = form.cleaned_data.get('role')
+        user.groups.clear()  # Remove old roles
+        user.groups.add(role)
+
+        messages.success(self.request, f"User {user.username} has been assigned to the {role.name} role")
+        return super().form_valid(form)
 
 
-@user_passes_test(is_admin, login_url='no-permission')
-def create_group(request):
-    form = CreateGroupForm()
-    if request.method == 'POST':
-        form = CreateGroupForm(request.POST)
+#class based view
+class CreateGroupView(UserPassesTestMixin, FormView):
+    template_name = 'admin/create_group.html'
+    form_class = CreateGroupForm
+    success_url = reverse_lazy('create-group')
 
-        if form.is_valid():
-            group = form.save()
-            messages.success(request, f"Group { group.name} has been created successfully")
-            return redirect('create-group')
+    def test_func(self):
+        """Check if the user is an admin."""
+        return self.request.user.is_authenticated and self.request.user.groups.filter(name='Admin').exists()
 
-    return render(request, 'admin/create_group.html', {'form': form})
+    def form_valid(self, form):
+        """Create the group and show a success message."""
+        group = form.save()
+        messages.success(self.request, f"Group {group.name} has been created successfully")
+        return super().form_valid(form)
 
+#ClassView
+class GroupListView(UserPassesTestMixin, ListView):
+    model = Group
+    template_name = 'admin/group_list.html'
+    context_object_name = 'groups'
 
-@user_passes_test(is_admin, login_url='no-permission')
-def group_list(request):
-    groups = Group.objects.prefetch_related('permissions').all()
-    return render(request, 'admin/group_list.html', {'groups': groups})
+    def test_func(self):
+        """Check if the user is an admin."""
+        return self.request.user.is_authenticated and self.request.user.groups.filter(name='Admin').exists()
 
+    def get_queryset(self):
+        """Fetch groups with related permissions for optimization."""
+        return Group.objects.prefetch_related('permissions').all()
 
 class ProfileView(TemplateView):
     template_name = 'accounts/profile.html'

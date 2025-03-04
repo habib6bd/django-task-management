@@ -10,10 +10,9 @@ from users.views import is_admin
 from django.http import HttpResponse
 from django.views import View
 from django.utils.decorators import method_decorator
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.mixins import PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin, UserPassesTestMixin
 from django.views.generic.base import ContextMixin
-from django.views.generic import ListView, DetailView, UpdateView
+from django.views.generic import ListView, DetailView, UpdateView, TemplateView
 
 
 # Class Based View Re-use example
@@ -42,57 +41,53 @@ def is_employee(user):
     return user.groups.filter(name='Manager').exists()
 
 
-@user_passes_test(is_manager, login_url='no-permission')
-def manager_dashboard(request):
+#Class View
+class ManagerDashboardView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    model = Task
+    template_name = "dashboard/manager-dashboard.html"
+    context_object_name = "tasks"
 
-    # getting task count
-    # total_task = tasks.count()
-    # completed_task = Task.objects.filter(status="COMPLETED").count()
-    # in_progress_task = Task.objects.filter(status='IN_PROGRESS').count()
-    # pending_task = Task.objects.filter(status="PENDING").count()
+    def test_func(self):
+        """Restrict access to managers only."""
+        return is_manager(self.request.user)
 
-    # count = {
-    #     "total_task":
-    #     "completed_task":
-    #     "in_progress_task":
-    #     "pending_task":
-    # }
-    type = request.GET.get('type', 'all')
-    # print(type)
+    def get_queryset(self):
+        """Filter tasks based on the 'type' query parameter."""
+        task_type = self.request.GET.get("type", "all")
 
-    counts = Task.objects.aggregate(
-        total=Count('id'),
-        completed=Count('id', filter=Q(status='COMPLETED')),
-        in_progress=Count('id', filter=Q(status='IN_PROGRESS')),
-        pending=Count('id', filter=Q(status='PENDING')),
-    )
+        base_query = Task.objects.select_related("details").prefetch_related("assigned_to")
 
-    # Retriving task data
+        if task_type == "completed":
+            return base_query.filter(status="COMPLETED")
+        elif task_type == "in-progress":
+            return base_query.filter(status="IN_PROGRESS")
+        elif task_type == "pending":
+            return base_query.filter(status="PENDING")
+        else:  # Default to "all"
+            return base_query.all()
 
-    base_query = Task.objects.select_related(
-        'details').prefetch_related('assigned_to')
+    def get_context_data(self, **kwargs):
+        """Add task counts to the context."""
+        context = super().get_context_data(**kwargs)
 
-    if type == 'completed':
-        tasks = base_query.filter(status='COMPLETED')
-    elif type == 'in-progress':
-        tasks = base_query.filter(status='IN_PROGRESS')
-    elif type == 'pending':
-        tasks = base_query.filter(status='PENDING')
-    elif type == 'all':
-        tasks = base_query.all()
+        context["counts"] = Task.objects.aggregate(
+            total=Count("id"),
+            completed=Count("id", filter=Q(status="COMPLETED")),
+            in_progress=Count("id", filter=Q(status="IN_PROGRESS")),
+            pending=Count("id", filter=Q(status="PENDING")),
+        )
 
-    context = {
-        "tasks": tasks,
-        "counts": counts,
-        "role": 'manager'
-    }
-    return render(request, "dashboard/manager-dashboard.html", context)
+        context["role"] = "manager" 
+        return context
 
 
-@user_passes_test(is_employee)
-def employee_dashboard(request):
-    return render(request, "dashboard/user-dashboard.html")
+#Class View
+class EmployeeDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+    template_name = "dashboard/user-dashboard.html"
 
+    def test_func(self):
+        """Restrict access to employees only."""
+        return is_employee(self.request.user)
 
 @login_required
 @permission_required("tasks.add_task", login_url='no-permission')
@@ -234,30 +229,41 @@ class UpdateTask(UpdateView):
         return redirect('update-task', self.object.id)
 
 
-@login_required
-@permission_required("tasks.delete_task", login_url='no-permission')
-def delete_task(request, id):
-    if request.method == 'POST':
-        task = Task.objects.get(id=id)
-        task.delete()
-        messages.success(request, 'Task Deleted Successfully')
-        return redirect('manager-dashboard')
-    else:
-        messages.error(request, 'Something went wrong')
-        return redirect('manager-dashboard')
+
+#ClassView
+class DeleteTaskView(LoginRequiredMixin, PermissionRequiredMixin, View):
+    permission_required = "tasks.delete_task"
+    login_url = "no-permission"
+
+    def post(self, request, id, *args, **kwargs):
+        """Handle task deletion."""
+        try:
+            task = Task.objects.get(id=id)
+            task.delete()
+            messages.success(request, "Task Deleted Successfully")
+        except Task.DoesNotExist:
+            messages.error(request, "Task not found")
+        except Exception:
+            messages.error(request, "Something went wrong")
+        
+        return redirect("manager-dashboard")
 
 
-@login_required
-@permission_required("tasks.view_task", login_url='no-permission')
-def view_task(request):
-    projects = Project.objects.annotate(
-        num_task=Count('task')).order_by('num_task')
-    return render(request, "show_task.html", {"projects": projects})
+#ClassView
+class ViewTaskListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = Project
+    template_name = "show_task.html"
+    context_object_name = "projects"
+    login_url = "no-permission"
+    permission_required = "tasks.view_task"
+
+    def get_queryset(self):
+        """Annotate projects with task count and order them."""
+        return Project.objects.annotate(num_task=Count("task")).order_by("num_task")
 
 
 view_project_decorators = [login_required, permission_required(
     "projects.view_project", login_url='no-permission')]
-
 
 @method_decorator(view_project_decorators, name='dispatch')
 class ViewProject(ListView):
